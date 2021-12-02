@@ -254,7 +254,6 @@ def serialize(
                         for r in data:
                             w.writerow(r)
 
-
     elif format == "parquet":
 
         if (not isinstance(data, pa.Table)) and (not isinstance(data, pd.DataFrame)) and (not isinstance(data, list)):

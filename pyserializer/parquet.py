@@ -26,7 +26,15 @@ class PartitionWriter():
             filesystem=self.filesystem)
         self.zero_copy_only = zero_copy_only
 
-    def write_partition(self, data, row_group_size=None, row_group_columns=None, preserve_index=False, safe=True, limit=None):
+    def write_partition(
+        self,
+        data,
+        row_group_size=None,
+        row_group_columns=None,
+        preserve_index=False,
+        safe=True,
+        limit=None
+    ):
         if limit is not None and limit == 0:
             return
         if row_group_columns is not None and len(row_group_columns) > 0:
@@ -64,7 +72,7 @@ class PartitionWriter():
                 )
             elif isinstance(data, pa.Table):
                 if limit is not None and limit > 0 and limit < len(data):
-                     table = pa.Table.from_pandas(
+                    table = pa.Table.from_pandas(
                         data.to_pandas(zero_copy_only=self.zero_copy_only).head(limit),
                         schema=self.schema,
                         preserve_index=preserve_index,
