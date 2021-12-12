@@ -34,6 +34,7 @@ def serialize(
     makedirs=False,
     index=False,
     safe=True,
+    timeout=None,
     zero_copy_only=False,
     pretty=False
 ):
@@ -271,7 +272,8 @@ def serialize(
                 makedirs=makedirs,
                 nthreads=None,
                 preserve_index=index,
-                schema=schema
+                schema=schema,
+                timeout=timeout
             )
             dw.write_dataset(
                 data,
