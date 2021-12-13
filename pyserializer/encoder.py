@@ -24,6 +24,9 @@ class Encoder(json.JSONEncoder):
 
     def default(self, obj):
 
+        if isinstance(obj, Exception):
+            return str(obj)
+
         if isinstance(obj, decimal.Decimal):
             return str(obj) if self.decimal_format == "string" else float(obj)
 

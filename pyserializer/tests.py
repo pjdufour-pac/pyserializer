@@ -45,6 +45,13 @@ class TestEncoder(unittest.TestCase):
             'error encoding decimal as string'
         )
 
+    def test_exception(self):
+        self.assertEqual(
+            json.dumps(Exception("hello world"), cls=Encoder),
+            '"hello world"',
+            'error encoding exception as string'
+        )
+
     def test_string(self):
         self.assertEqual(
             json.dumps("hello world", cls=Encoder),
