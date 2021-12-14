@@ -33,6 +33,10 @@ test_python:
 test_cli:
 	bash scripts/test-cli.sh
 
+.PHONY: venv
+venv:
+	python3 -m venv .venv
+
 #
 # Clean Targets
 #

@@ -5,22 +5,101 @@
 #
 # =================================================================
 
-import json
-import gzip
 import csv
-import sys
+import json
 
 import pyarrow as pa
 import pandas as pd
 
+from pyserializer.cleaner import clean
 from pyserializer.encoder import Encoder
 from pyserializer.parquet import DatasetWriter, PartitionWriter
+from pyserializer.writer import create_writer
+
+
+def write_jsonl_tuples(drop_blanks=None, drop_nulls=None, f=None, limit=None, tuples=None, kwargs=None):
+    if limit is not None and limit > 0 and limit < len(tuples):
+        if drop_nulls or drop_blanks:
+            count = 0
+            for item in tuples:
+                f.write(
+                    json.dumps(
+                        clean(
+                            item._asdict(),
+                            drop_nulls=drop_nulls,
+                            drop_blanks=drop_blanks
+                        ),
+                        **kwargs
+                    )+"\n"
+                )
+                count += 1
+                if count >= limit:
+                    break
+        else:
+            count = 0
+            for item in tuples:
+                f.write(json.dumps(item._asdict(), **kwargs)+"\n")
+                count += 1
+                if count >= limit:
+                    break
+    else:
+        if drop_nulls or drop_blanks:
+            for item in tuples:
+                f.write(
+                    json.dumps(
+                        clean(
+                            item._asdict(),
+                            drop_nulls=drop_nulls,
+                            drop_blanks=drop_blanks
+                        ),
+                        **kwargs
+                    )+"\n"
+                )
+        else:
+            for item in tuples:
+                f.write(json.dumps(item._asdict(), **kwargs)+"\n")
+
+
+def write_csv_tuples(drop_blanks=None, drop_nulls=None, cw=None, limit=None, tuples=None):
+    if limit is not None and limit > 0 and limit < len(tuples):
+        if drop_nulls or drop_blanks:
+            count = 0
+            for item in tuples:
+                cw.writerow(clean(
+                    item._asdict(),
+                    drop_nulls=drop_nulls,
+                    drop_blanks=drop_blanks
+                ))
+                count += 1
+                if count >= limit:
+                    break
+        else:
+            count = 0
+            for item in tuples:
+                cw.writerow(item._asdict())
+                count += 1
+                if count >= limit:
+                    break
+    else:
+        if drop_nulls or drop_blanks:
+            for item in tuples:
+                cw.writerow(clean(
+                    item._asdict(),
+                    drop_nulls=drop_nulls,
+                    drop_blanks=drop_blanks
+                ))
+        else:
+            for item in tuples:
+                cw.writerow(item._asdict())
 
 
 def serialize(
+    allow_nan=False,
     ctx=None,
     dest=None,
     data=None,
+    drop_blanks=None,
+    drop_nulls=None,
     encoder=None,
     format=None,
     compression=None,
@@ -41,31 +120,18 @@ def serialize(
     if format == "json":
 
         kwargs = {
+            "allow_nan": allow_nan,
             "cls": (encoder if encoder is not None else Encoder),
             "separators": ((', ', ': ') if pretty else (',', ':'))
         }
 
-        if compression == "gzip":
-            if dest == "-":
-                json.dump(data, sys.stdout, **kwargs)
-            else:
-                if fs is not None:
-                    with fs.open(dest, 'wb') as f:
-                        with gzip.open(f, 'wt') as w:
-                            w.write(json.dumps(data, **kwargs))
-                else:
-                    with gzip.open(dest, 'wt') as f:
-                        json.dump(data, f, **kwargs)
+        if fs is not None:
+            with fs.open(dest, 'wb') as f:
+                with create_writer(f=f, compression=compression) as w:
+                    w.write(json.dumps(data, **kwargs))
         else:
-            if dest == "-":
-                print(json.dumps(data, **kwargs))
-            else:
-                if fs is not None:
-                    with fs.open(dest, 'wt') as f:
-                        f.write(json.dumps(data, **kwargs))
-                else:
-                    with open(dest, 'wt') as f:
-                        json.dump(data, f, **kwargs)
+            with create_writer(f=dest, compression=compression) as w:
+                w.write(json.dumps(data, **kwargs))
 
     elif format == "jsonl":
 
@@ -76,184 +142,136 @@ def serialize(
             return
 
         kwargs = {
+            "allow_nan": allow_nan,
             "cls": (encoder if encoder is not None else Encoder),
             "separators": ((', ', ': ') if pretty else (',', ':'))
         }
 
-        # if list, then slice the list all at once, since already in memory
-        if isinstance(data, list):
-            if compression == "gzip":
-                if dest == "-":
-                    json.dump(data[0], sys.stdout, **kwargs)
-                    for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
-                        f.write("\n")
-                        json.dump(item, sys.stdout, **kwargs)
-                else:
-                    with gzip.open(dest, 'wt') as f:
-                        json.dump(data[0], f, **kwargs)
-                        for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
-                            f.write("\n")
-                            json.dump(item, f, **kwargs)
-            else:
-                if dest == "-":
-                    print(json.dumps(data[0], **kwargs))
-                    for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
-                        print("")
-                        print(json.dumps(item, **kwargs))
-                else:
-                    with open(dest, 'wt') as f:
-                        json.dump(data[0], f, **kwargs)
-                        for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
-                            f.write("\n")
-                            json.dump(item, f, **kwargs)
+        if fs is not None:
+            with fs.open(dest, 'wb') as f:
+                with create_writer(f=f, compression=compression) as w:
 
-        # if dataframe, then iterate through the data time.
-        if isinstance(data, pd.DataFrame):
-            if compression == "gzip":
-                if dest == "-":
-                    if limit is not None and limit > 0 and limit < len(data):
-                        with gzip.open(sys.stdout, 'wb') as f:
-                            count = 0
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
-                                count += 1
-                                if count >= limit:
-                                    break
-                    else:
-                        with gzip.open(sys.stdout, 'wb') as f:
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
-                else:
-                    if limit is not None and limit > 0 and limit < len(data):
-                        with gzip.open(dest, 'wb') as f:
-                            count = 0
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
-                                count += 1
-                                if count >= limit:
-                                    break
-                    else:
-                        with gzip.open(dest, 'wb') as f:
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
-            else:
-                if dest == "-":
-                    if limit is not None and limit > 0 and limit < len(data):
-                        count = 0
-                        tuples = data.itertuples(index=index)
-                        print(json.dumps(next(tuples)._asdict(), **kwargs))
-                        for item in tuples:
-                            print("")
-                            print(json.dumps(item._asdict(), **kwargs))
-                            count += 1
-                            if count >= limit:
-                                break
-                    else:
-                        tuples = data.itertuples(index=index)
-                        print(json.dumps(next(tuples)._asdict(), **kwargs))
-                        for item in tuples:
-                            print("")
-                            print(json.dumps(item._asdict(), **kwargs))
-                else:
-                    if limit is not None and limit > 0 and limit < len(data):
-                        with open(dest, 'wb') as f:
-                            count = 0
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
-                                count += 1
-                                if count >= limit:
-                                    break
-                    else:
-                        with open(dest, 'wt') as f:
-                            tuples = data.itertuples(index=index)
-                            json.dump(next(tuples)._asdict(), f, **kwargs)
-                            for item in tuples:
-                                f.write("\n")
-                                json.dump(item._asdict(), f, **kwargs)
+                    # if list, then slice the list all at once, since already in memory
+                    if isinstance(data, list):
+                        json.dump(data[0], w, **kwargs)
+                        for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
+                            w.write("\n")
+                            json.dump(item, w, **kwargs)
+
+                    # if dataframe, then iterate through the data time.
+                    if isinstance(data, pd.DataFrame):
+                        write_jsonl_tuples(
+                            drop_blanks=drop_blanks,
+                            drop_nulls=drop_nulls,
+                            f=w,
+                            limit=limit,
+                            tuples=data.itertuples(index=index),
+                            kwargs=kwargs
+                        )
+
+        else:
+            with create_writer(f=dest, compression=compression) as w:
+
+                # if list, then slice the list all at once, since already in memory
+                if isinstance(data, list):
+                    json.dump(data[0], w, **kwargs)
+                    for item in (data[1:limit] if limit is not None and limit > 0 else data[1:]):
+                        w.write("\n")
+                        json.dump(item, w, **kwargs)
+
+                # if dataframe, then iterate through the data time.
+                if isinstance(data, pd.DataFrame):
+                    write_jsonl_tuples(
+                        drop_blanks=drop_blanks,
+                        drop_nulls=drop_nulls,
+                        f=w,
+                        limit=limit,
+                        tuples=data.itertuples(index=index),
+                        kwargs=kwargs
+                    )
 
     elif format == "csv":
-        fieldnames = columns or sorted(list({k for d in data for k in d.keys()}))
-        if compression == "gzip":
-            if dest == "-":
-                if limit is not None and limit > 0 and limit < len(data):
-                    w = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
-                    w.writeheader()
-                    count = 0
-                    for r in data:
-                        w.writerow(r)
-                        count += 1
-                        if count >= limit:
-                            break
-                else:
-                    w = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
-                    w.writeheader()
-                    for r in data:
-                        w.writerow(r)
-            else:
-                if limit is not None and limit > 0 and limit < len(data):
-                    with gzip.open(dest, 'wt') as f:
-                        w = csv.DictWriter(f, fieldnames=fieldnames)
-                        w.writeheader()
-                        count = 0
-                        for r in data:
-                            w.writerow(r)
-                            count += 1
-                            if count >= limit:
-                                break
-                else:
-                    with gzip.open(dest, 'wt') as f:
-                        w = csv.DictWriter(f, fieldnames=fieldnames)
-                        w.writeheader()
-                        for r in data:
-                            w.writerow(r)
+
+        if (not isinstance(data, pa.Table)) and (not isinstance(data, pd.DataFrame)) and (not isinstance(data, list)):
+            raise Exception("unknown data type {}".format(type(data)))
+
+        if len(data) == 0:
+            return
+
+        if fs is not None:
+            with fs.open(dest, 'wb') as f:
+                with create_writer(f=f, compression=compression) as w:
+
+                    # if list, then slice the list all at once, since already in memory
+                    if isinstance(data, list):
+                        fieldnames = columns or sorted(list({k for d in data for k in d.keys()}))
+                        if limit is not None and limit > 0 and limit < len(data):
+                            cw = csv.DictWriter(w, fieldnames=fieldnames)
+                            cw.writeheader()
+                            count = 0
+                            for r in data:
+                                cw.writerow(r)
+                                count += 1
+                                if count >= limit:
+                                    break
+                        else:
+                            cw = csv.DictWriter(w, fieldnames=fieldnames)
+                            cw.writeheader()
+                            for r in data:
+                                cw.writerow(r)
+
+                    # if dataframe, then iterate through the data time.
+                    if isinstance(data, pd.DataFrame):
+                        fieldnames = sorted(list(data.columns))
+                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw.writeheader()
+                        if limit is not None and limit > 0 and limit < len(data):
+                            data = data.head(limit)
+                        else:
+                            write_csv_tuples(
+                                drop_blanks=drop_blanks,
+                                drop_nulls=drop_nulls,
+                                cw=cw,
+                                limit=limit,
+                                tuples=data.itertuples(index=index)
+                            )
+
         else:
-            if dest == "-":
-                if limit is not None and limit > 0 and limit < len(data):
-                    w = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
-                    w.writeheader()
-                    count = 0
-                    for r in data:
-                        w.writerow(r)
-                        count += 1
-                        if count >= limit:
-                            break
-                else:
-                    w = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
-                    w.writeheader()
-                    for r in data:
-                        w.writerow(r)
-            else:
-                if limit is not None and limit > 0 and limit < len(data):
-                    with open(dest, 'wt') as f:
-                        w = csv.DictWriter(f, fieldnames=fieldnames)
-                        w.writeheader()
+            with create_writer(f=dest, compression=compression) as w:
+
+                # if list, then slice the list all at once, since already in memory
+                if isinstance(data, list):
+                    fieldnames = columns or sorted(list({k for d in data for k in d.keys()}))
+                    if limit is not None and limit > 0 and limit < len(data):
+                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw.writeheader()
                         count = 0
                         for r in data:
-                            w.writerow(r)
+                            cw.writerow(r)
                             count += 1
                             if count >= limit:
                                 break
-                else:
-                    with open(dest, 'wt') as f:
-                        w = csv.DictWriter(f, fieldnames=fieldnames)
-                        w.writeheader()
+                    else:
+                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw.writeheader()
                         for r in data:
-                            w.writerow(r)
+                            cw.writerow(r)
+
+                # if dataframe, then iterate through the data time.
+                if isinstance(data, pd.DataFrame):
+                    fieldnames = sorted(list(data.columns))
+                    cw = csv.DictWriter(w, fieldnames=fieldnames)
+                    cw.writeheader()
+                    if limit is not None and limit > 0 and limit < len(data):
+                        data = data.head(limit)
+                    else:
+                        write_csv_tuples(
+                            drop_blanks=drop_blanks,
+                            drop_nulls=drop_nulls,
+                            cw=cw,
+                            limit=limit,
+                            tuples=data.itertuples(index=index)
+                        )
 
     elif format == "parquet":
 

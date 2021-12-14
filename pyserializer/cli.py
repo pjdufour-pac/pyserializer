@@ -5,10 +5,12 @@
 #
 # =================================================================
 
+import os
 from urllib.parse import urlparse
 
-import os
 import s3fs
+import pyathena
+from pyathena.pandas.cursor import PandasCursor
 
 from pyserializer.serialize import serialize
 from pyserializer.deserialize import deserialize
@@ -41,7 +43,92 @@ def create_s3_filesystem(endpoint=None, region=None, acl=None):
     )
 
 
+class Athena(object):
+
+    def __init__(self):
+        pass
+
+    def query(
+        self,
+        allow_nan=None,
+        drop_blanks=None,
+        drop_nulls=None,
+        workgroup="",
+        query="",
+        dest="",
+        input_athena_endpoint="",
+        input_athena_region="",
+        output_compression="",
+        output_s3_endpoint="",
+        output_s3_region="",
+        input_format="",
+        output_format="",
+        limit=None,
+    ):
+        allow_nan = allow_nan or False
+        drop_blanks = drop_blanks or False
+        drop_nulls = drop_nulls or False
+
+        if workgroup is None or len(workgroup) == 0:
+            raise Exception("workgroup is missing")
+
+        if query is None or len(query) == 0:
+            raise Exception("query is missing")
+
+        if dest is None or len(dest) == 0:
+            raise Exception("dest is missing")
+
+        if output_compression is not None and len(output_compression) > 0:
+            if output_compression not in algorithms:
+                raise Exception(
+                    "output_compression is invalid: only the following compression algorithms are supported: {}".format(
+                        ", ".join(algorithms)
+                    )
+                )
+
+        if output_format is None or len(output_format) == 0:
+            raise Exception("output_format is missing")
+
+        dest_path = None
+        output_file_system = None
+        if dest.startswith("s3://"):
+            output_file_system = create_s3_filesystem(
+                endpoint=output_s3_endpoint or None,
+                region=output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+                acl=None
+            )
+            dest_parts = urlparse(dest)
+            dest_path = "{}{}".format(dest_parts.netloc, dest_parts.path).removesuffix("/")
+        else:
+            dest_path = dest
+
+        athena_client = pyathena.connect(
+            work_group=workgroup,
+            endpoint_url=input_athena_endpoint or None,
+            region_name=input_athena_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+            cursor_class=PandasCursor
+        )
+        athena_cursor = athena_client.cursor()
+
+        data = athena_cursor.execute(query).as_pandas()
+
+        serialize(
+            allow_nan=allow_nan,
+            compression=(output_compression or None),
+            dest=dest_path,
+            data=data,
+            drop_nulls=drop_nulls,
+            drop_blanks=drop_blanks,
+            format=output_format,
+            fs=output_file_system,
+            limit=limit
+        )
+
+
 class CLI(object):
+
+    def __init__(self):
+        self.athena = Athena()
 
     def algorithms(self):
         for algorithm in algorithms:

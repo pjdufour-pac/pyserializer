@@ -66,6 +66,27 @@ class TestEncoder(unittest.TestCase):
             'error encoding float'
         )
 
+    def test_float_infinity(self):
+        self.assertEqual(
+            json.dumps(float('inf'), allow_nan=True, cls=Encoder),
+            'Infinity',
+            'error encoding float(\'inf\')'
+        )
+
+    def test_float_negative_infinity(self):
+        self.assertEqual(
+            json.dumps(float('-inf'), allow_nan=True, cls=Encoder),
+            '-Infinity',
+            'error encoding float(\'-inf\')'
+        )
+
+    def test_float_nan(self):
+        self.assertEqual(
+            json.dumps(float('nan'), allow_nan=True, cls=Encoder),
+            'NaN',
+            'error encoding float(\'nan\')'
+        )
+
     def test_date(self):
         self.assertEqual(
             json.dumps(datetime.date(2001, 1, 1), cls=Encoder),
@@ -241,7 +262,7 @@ class TestSerializer(unittest.TestCase):
             result = f.read()
         self.assertEqual(
             result,
-            '{"hello":"world"}\n{"hello":"planet"}',
+            '{"hello":"world"}\n{"hello":"planet"}\n',
             'error encoding data frame as JSON Lines (jsonl)'
         )
 
@@ -256,7 +277,7 @@ class TestSerializer(unittest.TestCase):
             result = f.read()
         self.assertEqual(
             result,
-            '{"Index":0,"hello":"world"}\n{"Index":1,"hello":"planet"}',
+            '{"Index":0,"hello":"world"}\n{"Index":1,"hello":"planet"}\n',
             'error encoding data frame as JSON lines (jsonl) with index'
         )
 
@@ -271,7 +292,7 @@ class TestSerializer(unittest.TestCase):
             result = f.read()
         self.assertEqual(
             result,
-            '{"hello": "world"}\n{"hello": "planet"}',
+            '{"hello": "world"}\n{"hello": "planet"}\n',
             'error encoding data frame as JSON Lines (jsonl) with pretty spaces'
         )
 

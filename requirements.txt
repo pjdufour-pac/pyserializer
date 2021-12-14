@@ -1,4 +1,7 @@
-pyarrow
+aiobotocore[boto3]
 pandas
+pyarrow
+PyAthena
+PyAthena[Pandas]
 fire
-s3fs
+s3fs~=0.4.0

@@ -10,9 +10,13 @@ import decimal
 import json
 
 import pandas as pd
+import numpy as np
 
 
 class Encoder(json.JSONEncoder):
+    """
+    Encoder extends the default JSON encoder to add support for new functions.
+    """
 
     def __init__(self, **kwargs):
         formats = kwargs.pop("formats", {})
@@ -43,5 +47,14 @@ class Encoder(json.JSONEncoder):
 
         if isinstance(obj, pd.DataFrame):
             return obj.to_dict('records')
+
+        if isinstance(obj, np.integer):
+            return int(obj)
+
+        if isinstance(obj, np.floating):
+            return float(obj)
+
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
 
         return super(Encoder, self).default(obj)
