@@ -37,10 +37,10 @@ try:
 except Exception:
     # attempt to parse the Pipfile.lock used by pipenv
     with open('Pipfile.lock') as fd:
-        lock_data = json.load(fd)
+        data = json.load(fd)
         install_requires = [
-            package_name + package_data['version']
-            for package_name, package_data in lock_data['default'].items()
+            ("git+{}@{}#egg={}".format(v['git'], v.get('ref'), k) if v.get("git") is not None else k + v['version'])
+            for k, v in data['default'].items()
         ]
 
 install_requires = [
