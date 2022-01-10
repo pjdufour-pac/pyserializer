@@ -12,11 +12,13 @@ import s3fs
 import pyathena
 from pyathena.pandas.cursor import PandasCursor
 
+from pyserializer.archive import names
 from pyserializer.serialize import serialize
 from pyserializer.deserialize import deserialize
 
 algorithms = [
-    "gzip"
+    "gzip",
+    "zip"
 ]
 
 formats = [
@@ -41,6 +43,96 @@ def create_s3_filesystem(endpoint=None, region=None, acl=None):
         },
         s3_additional_kwargs=s3_additional_kwargs
     )
+
+
+class Archive(object):
+
+    def __init__(self):
+        pass
+
+    def names(
+        self,
+        src="",
+        dest="",
+        input_compression="",
+        input_name="",
+        input_s3_endpoint="",
+        input_s3_region="",
+        output_compression="",
+        output_s3_endpoint="",
+        output_s3_region="",
+        input_format="",
+        output_format="",
+        drop_blanks=False,
+        drop_nulls=False,
+        limit=None,
+    ):
+
+        if src is None or len(src) == 0:
+            raise Exception("src is missing")
+
+        if dest is None or len(dest) == 0:
+            raise Exception("dest is missing")
+
+        if input_compression is not None and len(input_compression) > 0:
+            if input_compression not in algorithms:
+                raise Exception(
+                    "input_compression is invalid: only the following compression algorithms are supported: {}".format(
+                        ", ".join(algorithms)
+                    )
+                )
+
+        if output_compression is not None and len(output_compression) > 0:
+            if output_compression not in algorithms:
+                raise Exception(
+                    "output_compression is invalid: only the following compression algorithms are supported: {}".format(
+                        ", ".join(algorithms)
+                    )
+                )
+
+        if output_format is None or len(output_format) == 0:
+            raise Exception("output_format is missing")
+
+        src_path = None
+        input_file_system = None
+        if src.startswith("s3://"):
+            input_file_system = create_s3_filesystem(
+                endpoint=input_s3_endpoint or None,
+                region=input_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+                acl=None
+            )
+            src_parts = urlparse(src)
+            src_path = "{}{}".format(src_parts.netloc, src_parts.path).removesuffix("/")
+        else:
+            src_path = src
+
+        dest_path = None
+        output_file_system = None
+        if dest.startswith("s3://"):
+            output_file_system = create_s3_filesystem(
+                endpoint=output_s3_endpoint or None,
+                region=output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+                acl=None
+            )
+            dest_parts = urlparse(dest)
+            dest_path = "{}{}".format(dest_parts.netloc, dest_parts.path).removesuffix("/")
+        else:
+            dest_path = dest
+
+        data = names(
+            src=src_path,
+            compression=input_compression,
+            fs=input_file_system
+        )
+
+        serialize(
+            compression=(output_compression or None),
+            dest=dest_path,
+            data=data,
+            format=output_format,
+            fs=output_file_system,
+            limit=limit
+        )
 
 
 class Athena(object):
@@ -128,6 +220,7 @@ class Athena(object):
 class CLI(object):
 
     def __init__(self):
+        self.archive = Archive()
         self.athena = Athena()
 
     def algorithms(self):
@@ -143,6 +236,7 @@ class CLI(object):
         src="",
         dest="",
         input_compression="",
+        input_name="",
         input_s3_endpoint="",
         input_s3_region="",
         output_compression="",
@@ -183,6 +277,9 @@ class CLI(object):
         if output_format is None or len(output_format) == 0:
             raise Exception("output_format is missing")
 
+        if input_compression == "zip" and len(input_name) == 0:
+            raise Exception("input_name is missing, required when using zip compression")
+
         src_path = None
         input_file_system = None
         if src.startswith("s3://"):
@@ -216,6 +313,7 @@ class CLI(object):
             drop_nulls=drop_nulls or False,
             drop_blanks=drop_blanks or False,
             fs=input_file_system,
+            name=input_name or None
         )
 
         serialize(

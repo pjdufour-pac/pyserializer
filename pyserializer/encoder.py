@@ -8,6 +8,7 @@
 import datetime
 import decimal
 import json
+import ipaddress
 
 import pandas as pd
 import numpy as np
@@ -56,5 +57,8 @@ class Encoder(json.JSONEncoder):
 
         if isinstance(obj, np.ndarray):
             return obj.tolist()
+
+        if isinstance(obj, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
+            return str(obj)
 
         return super(Encoder, self).default(obj)

@@ -5,10 +5,12 @@
 #
 # =================================================================
 
-import json
-import gzip
 import csv
+import gzip
+import io
+import json
 import sys
+import zipfile
 
 import pyarrow.parquet as pq
 
@@ -24,7 +26,8 @@ def deserialize(
     buffer_size=None,
     fs=None,
     drop_blanks=None,
-    drop_nulls=None
+    drop_nulls=None,
+    name=None
 ):
 
     if format == "csv":
@@ -49,6 +52,20 @@ def deserialize(
                     data = None
                     with gzip.open(src, 'rt') as f:
                         data = [x for x in csv.DictReader(f)]
+                    if drop_nulls or drop_blanks:
+                        return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
+                    return data
+        elif compression == "zip":
+            if src == "-":
+                raise Exception("cannot unzip stdout")
+            else:
+                if fs is not None:
+                    raise Exception("cannot unzip from filesystem")
+                else:
+                    data = None
+                    with zipfile.ZipFile(src, 'r') as zf:
+                        with zf.open(name, 'r') as f:
+                            data = [x for x in csv.DictReader(io.TextIOWrapper(f))]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
@@ -167,7 +184,10 @@ def deserialize(
                     data = []
                     with open(src, 'rb') as f:
                         while (line := f.readline()):
-                            data += [json.loads(line[0:len(line)-1])]
+                            if line[len(line)-1] == '\n':
+                                data += [json.loads(line[0:len(line)-1])]
+                            else:
+                                data += [json.loads(line)]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
