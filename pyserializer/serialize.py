@@ -190,7 +190,7 @@ def serialize(
                         kwargs=kwargs
                     )
 
-    elif format == "csv":
+    elif format == "csv" or format == "tsv":
 
         if (not isinstance(data, pa.Table)) and (not isinstance(data, pd.DataFrame)) and (not isinstance(data, list)):
             raise Exception("unknown data type {}".format(type(data)))
@@ -206,7 +206,7 @@ def serialize(
                     if isinstance(data, list):
                         fieldnames = columns or sorted(list({k for d in data for k in d.keys()}))
                         if limit is not None and limit > 0 and limit < len(data):
-                            cw = csv.DictWriter(w, fieldnames=fieldnames)
+                            cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                             cw.writeheader()
                             count = 0
                             for r in data:
@@ -215,7 +215,7 @@ def serialize(
                                 if count >= limit:
                                     break
                         else:
-                            cw = csv.DictWriter(w, fieldnames=fieldnames)
+                            cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                             cw.writeheader()
                             for r in data:
                                 cw.writerow(r)
@@ -223,7 +223,7 @@ def serialize(
                     # if dataframe, then iterate through the data time.
                     if isinstance(data, pd.DataFrame):
                         fieldnames = sorted(list(data.columns))
-                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                         cw.writeheader()
                         if limit is not None and limit > 0 and limit < len(data):
                             data = data.head(limit)
@@ -243,7 +243,7 @@ def serialize(
                 if isinstance(data, list):
                     fieldnames = columns or sorted(list({k for d in data for k in d.keys()}))
                     if limit is not None and limit > 0 and limit < len(data):
-                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                         cw.writeheader()
                         count = 0
                         for r in data:
@@ -252,7 +252,7 @@ def serialize(
                             if count >= limit:
                                 break
                     else:
-                        cw = csv.DictWriter(w, fieldnames=fieldnames)
+                        cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                         cw.writeheader()
                         for r in data:
                             cw.writerow(r)
@@ -260,7 +260,7 @@ def serialize(
                 # if dataframe, then iterate through the data time.
                 if isinstance(data, pd.DataFrame):
                     fieldnames = sorted(list(data.columns))
-                    cw = csv.DictWriter(w, fieldnames=fieldnames)
+                    cw = csv.DictWriter(w, delimiter=("\t" if format == "tsv" else ","), fieldnames=fieldnames)
                     cw.writeheader()
                     if limit is not None and limit > 0 and limit < len(data):
                         data = data.head(limit)

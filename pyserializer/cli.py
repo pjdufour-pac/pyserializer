@@ -25,7 +25,8 @@ formats = [
     "csv",
     "json",
     "jsonl",
-    "parquet"
+    "parquet",
+    "tsv"
 ]
 
 
@@ -254,6 +255,12 @@ class CLI(object):
 
         if dest is None or len(dest) == 0:
             raise Exception("dest is missing")
+
+        if src == "<stdin>":
+            src = "-"
+
+        if dest == "<stdout>":
+            dest = "-"
 
         if input_compression is not None and len(input_compression) > 0:
             if input_compression not in algorithms:

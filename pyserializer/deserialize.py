@@ -30,12 +30,12 @@ def deserialize(
     name=None
 ):
 
-    if format == "csv":
+    if format == "csv" or format == "tsv":
         if compression == "gzip":
             if src == "-":
                 data = None
                 with gzip.open(sys.stdin.buffer, mode='rb') as f:
-                    data = [x for x in csv.DictReader(f)]
+                    data = [x for x in csv.DictReader(f, delimiter=("\t" if format == "tsv" else ","))]
                 if drop_nulls or drop_blanks:
                     return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                 return data
@@ -44,14 +44,14 @@ def deserialize(
                     data = None
                     with fs.open(src, 'rb') as f:
                         with gzip.GzipFile(fileobj=f) as gf:
-                            data = [x for x in csv.DictReader(gf)]
+                            data = [x for x in csv.DictReader(gf, delimiter=("\t" if format == "tsv" else ","))]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
                 else:
                     data = None
                     with gzip.open(src, 'rt') as f:
-                        data = [x for x in csv.DictReader(f)]
+                        data = [x for x in csv.DictReader(f, delimiter=("\t" if format == "tsv" else ","))]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
@@ -65,13 +65,19 @@ def deserialize(
                     data = None
                     with zipfile.ZipFile(src, 'r') as zf:
                         with zf.open(name, 'r') as f:
-                            data = [x for x in csv.DictReader(io.TextIOWrapper(f))]
+                            data = [x for x in csv.DictReader(
+                                io.TextIOWrapper(f),
+                                delimiter=("\t" if format == "tsv" else ",")
+                            )]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
         else:
             if src == "-":
-                data = [x for x in csv.DictReader(sys.stdin.buffer)]
+                data = [x for x in csv.DictReader(
+                    io.TextIOWrapper(sys.stdin.buffer),
+                    delimiter=("\t" if format == "tsv" else ",")
+                )]
                 if drop_nulls or drop_blanks:
                     return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                 return data
@@ -79,14 +85,14 @@ def deserialize(
                 if fs is not None:
                     data = None
                     with fs.open(src, 'rb') as f:
-                        data = [x for x in csv.DictReader(f)]
+                        data = [x for x in csv.DictReader(f, delimiter=("\t" if format == "tsv" else ","))]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
                 else:
                     data = None
                     with open(src, 'rt') as f:
-                        data = [x for x in csv.DictReader(f)]
+                        data = [x for x in csv.DictReader(f, delimiter=("\t" if format == "tsv" else ","))]
                     if drop_nulls or drop_blanks:
                         return clean(data, drop_nulls=drop_nulls, drop_blanks=drop_blanks)
                     return data
