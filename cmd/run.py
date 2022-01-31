@@ -5,14 +5,8 @@
 #
 # =================================================================
 
-import fire
-
 from pyserializer import cli
 
 
-def main():
-    fire.Fire(cli.CLI)
-
-
 if __name__ == "__main__":
-    main()
+    cli.main()

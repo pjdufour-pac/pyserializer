@@ -5,6 +5,7 @@
 #
 # =================================================================
 
+import fire
 import os
 from urllib.parse import urlparse
 
@@ -331,3 +332,7 @@ class CLI(object):
             fs=output_file_system,
             limit=limit
         )
+
+
+def main():
+    fire.Fire(CLI)

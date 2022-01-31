@@ -72,5 +72,6 @@ setup(name='pyserializer',
       },
       include_package_data=True,
       install_requires=install_requires,
-      zip_safe=False
+      zip_safe=False,
+      entry_points={"console_scripts": ["pyserializer=pyserializer.cli:main"]},
 )
