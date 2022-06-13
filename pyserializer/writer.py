@@ -64,7 +64,7 @@ def create_writer(compression=None, f=None):
             if f == "-":
                 return StreamWriter(sys.stdout)
             return FileWriter(open(f, 'wt'))
-        else
+        else:
             return FileWriter(f)
     else:
         raise Exception("unknown compression {}".format(compression))
