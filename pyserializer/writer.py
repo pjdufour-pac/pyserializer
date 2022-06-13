@@ -39,7 +39,10 @@ class FileWriter(Writer):
         self.f.close()
 
     def write(self, data):
-        self.f.write(data)
+        if isinstance(data, str):
+            self.w.write(data.encode())
+        else:
+            self.f.write(data)
 
 
 class StreamWriter(Writer):
@@ -51,7 +54,10 @@ class StreamWriter(Writer):
         pass
 
     def write(self, data):
-        self.w.write(data)
+        if isinstance(data, str):
+            self.w.write(data.encode())
+        else:
+            self.w.write(data)
 
 
 def create_writer(compression=None, f=None):
