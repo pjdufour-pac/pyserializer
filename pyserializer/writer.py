@@ -60,8 +60,11 @@ def create_writer(compression=None, f=None):
             return FileWriter(gzip.open(sys.stdout, 'wt'))
         return FileWriter(gzip.open(f, 'wt'))
     elif compression is None or len(compression) == 0:
-        if f == "-":
-            return StreamWriter(sys.stdout)
-        return FileWriter(open(f, 'wt'))
+        if isinstance(f, str):
+            if f == "-":
+                return StreamWriter(sys.stdout)
+            return FileWriter(open(f, 'wt'))
+        else
+            return FileWriter(f)
     else:
         raise Exception("unknown compression {}".format(compression))
