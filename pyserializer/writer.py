@@ -40,7 +40,7 @@ class FileWriter(Writer):
 
     def write(self, data):
         if isinstance(data, str):
-            self.w.write(data.encode())
+            self.f.write(data.encode())
         else:
             self.f.write(data)
 
