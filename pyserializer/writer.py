@@ -63,13 +63,13 @@ class StreamWriter(Writer):
 def create_writer(compression=None, f=None):
     if compression == "gzip":
         if f == "-":
-            return FileWriter(gzip.open(sys.stdout, 'wt'))
-        return FileWriter(gzip.open(f, 'wt'))
+            return FileWriter(gzip.open(sys.stdout, 'wb'))
+        return FileWriter(gzip.open(f, 'wb'))
     elif compression is None or len(compression) == 0:
         if isinstance(f, str):
             if f == "-":
                 return StreamWriter(sys.stdout)
-            return FileWriter(open(f, 'wt'))
+            return FileWriter(open(f, 'wb'))
         else:
             return FileWriter(f)
     else:
