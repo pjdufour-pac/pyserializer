@@ -19,14 +19,14 @@ editable:  ## install this repo as editable
 
 .PHONY: python_build
 python_build:
-	python3  -m build
+	python3 -m build
 
-.PHONY: flake8
-flake8:
+.PHONY: python_flake8
+python_flake8:
 	python3 -m flake8 cmd pyserializer setup.py
 
-.PHONY: test
-test_python:
+.PHONY: python_test
+python_test:
 	python3 -m unittest pyserializer.tests -v
 
 .PHONY: test_cli

@@ -31,7 +31,7 @@ formats = [
 ]
 
 
-def create_s3_filesystem(endpoint=None, region=None, acl=None):
+def create_s3_filesystem(profile=None, endpoint=None, region=None, acl=None):
     s3_additional_kwargs = None
     if acl is not None:
         s3_additional_kwargs = {
@@ -41,8 +41,9 @@ def create_s3_filesystem(endpoint=None, region=None, acl=None):
         anon=False,
         client_kwargs={
             "endpoint_url": endpoint,
-            "region_name": region,
+            "region_name": region
         },
+        profile=profile,
         s3_additional_kwargs=s3_additional_kwargs
     )
 
@@ -58,9 +59,11 @@ class Archive(object):
         dest="",
         input_compression="",
         input_name="",
+        input_s3_profile="",
         input_s3_endpoint="",
         input_s3_region="",
         output_compression="",
+        output_s3_profile="",
         output_s3_endpoint="",
         output_s3_region="",
         input_format="",
@@ -95,14 +98,23 @@ class Archive(object):
         if output_format is None or len(output_format) == 0:
             raise Exception("output_format is missing")
 
+        file_systems = {}
+
         src_path = None
         input_file_system = None
         if src.startswith("s3://"):
-            input_file_system = create_s3_filesystem(
-                endpoint=input_s3_endpoint or None,
-                region=input_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+            profile = input_s3_profile or os.getenv("AWS_PROFILE") or None
+            file_systems[profile] = {}
+            endpoint = input_s3_endpoint or None
+            file_systems[profile][endpoint] = {}
+            region = input_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+            file_systems[profile][endpoint][region] = create_s3_filesystem(
+                profile=profile,
+                endpoint=endpoint,
+                region=region,
                 acl=None
             )
+            input_file_system = file_systems[profile][endpoint][region]
             src_parts = urlparse(src)
             src_path = "{}{}".format(src_parts.netloc, src_parts.path).removesuffix("/")
         else:
@@ -111,11 +123,21 @@ class Archive(object):
         dest_path = None
         output_file_system = None
         if dest.startswith("s3://"):
-            output_file_system = create_s3_filesystem(
-                endpoint=output_s3_endpoint or None,
-                region=output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
-                acl=None
-            )
+            profile = output_s3_profile or os.getenv("AWS_PROFILE") or None
+            if profile not in file_systems:
+                file_systems[profile] = {}
+            endpoint = output_s3_endpoint or None
+            if endpoint not in file_systems[profile]:
+                file_systems[profile][endpoint] = {}
+            region = output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+            if region not in file_systems[profile][endpoint]:
+                file_systems[profile][endpoint][region] = create_s3_filesystem(
+                    profile=profile,
+                    endpoint=endpoint,
+                    region=region,
+                    acl=None
+                )
+            output_file_system = file_systems[profile][endpoint][region]
             dest_parts = urlparse(dest)
             dest_path = "{}{}".format(dest_parts.netloc, dest_parts.path).removesuffix("/")
         else:
@@ -150,9 +172,11 @@ class Athena(object):
         workgroup="",
         query="",
         dest="",
+        input_athena_profile="",
         input_athena_endpoint="",
         input_athena_region="",
         output_compression="",
+        output_s3_profile="",
         output_s3_endpoint="",
         output_s3_region="",
         input_format="",
@@ -187,6 +211,7 @@ class Athena(object):
         output_file_system = None
         if dest.startswith("s3://"):
             output_file_system = create_s3_filesystem(
+                profile=output_s3_profile or os.getenv("AWS_PROFILE") or None,
                 endpoint=output_s3_endpoint or None,
                 region=output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
                 acl=None
@@ -197,6 +222,7 @@ class Athena(object):
             dest_path = dest
 
         athena_client = pyathena.connect(
+            profile_name=input_athena_profile or os.getenv("AWS_PROFILE") or None,
             work_group=workgroup,
             endpoint_url=input_athena_endpoint or None,
             region_name=input_athena_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
@@ -239,9 +265,11 @@ class CLI(object):
         dest="",
         input_compression="",
         input_name="",
+        input_s3_profile="",
         input_s3_endpoint="",
         input_s3_region="",
         output_compression="",
+        output_s3_profile="",
         output_s3_endpoint="",
         output_s3_region="",
         input_format="",
@@ -288,14 +316,23 @@ class CLI(object):
         if input_compression == "zip" and len(input_name) == 0:
             raise Exception("input_name is missing, required when using zip compression")
 
+        file_systems = {}
+
         src_path = None
         input_file_system = None
         if src.startswith("s3://"):
-            input_file_system = create_s3_filesystem(
-                endpoint=input_s3_endpoint or None,
-                region=input_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
+            profile = input_s3_profile or os.getenv("AWS_PROFILE") or 'None'
+            file_systems[profile] = {}
+            endpoint = input_s3_endpoint or None
+            file_systems[profile][endpoint] = {}
+            region = input_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+            file_systems[profile][endpoint][region] = create_s3_filesystem(
+                profile=profile,
+                endpoint=endpoint,
+                region=region,
                 acl=None
             )
+            input_file_system = file_systems[profile][endpoint][region]
             src_parts = urlparse(src)
             src_path = "{}{}".format(src_parts.netloc, src_parts.path).removesuffix("/")
         else:
@@ -304,11 +341,21 @@ class CLI(object):
         dest_path = None
         output_file_system = None
         if dest.startswith("s3://"):
-            output_file_system = create_s3_filesystem(
-                endpoint=output_s3_endpoint or None,
-                region=output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"),
-                acl=None
-            )
+            profile = output_s3_profile or os.getenv("AWS_PROFILE") or None
+            if profile not in file_systems:
+                file_systems[profile] = {}
+            endpoint = output_s3_endpoint or None
+            if endpoint not in file_systems[profile]:
+                file_systems[profile][endpoint] = {}
+            region = output_s3_region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+            if region not in file_systems[profile][endpoint]:
+                file_systems[profile][endpoint][region] = create_s3_filesystem(
+                    profile=profile,
+                    endpoint=endpoint,
+                    region=region,
+                    acl=None
+                )
+            output_file_system = file_systems[profile][endpoint][region]
             dest_parts = urlparse(dest)
             dest_path = "{}{}".format(dest_parts.netloc, dest_parts.path).removesuffix("/")
         else:

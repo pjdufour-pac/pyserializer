@@ -44,7 +44,7 @@ TMPDIR="/usr/local/tmp" make test_cli
 
 **Python**
 
-To run Go tests use `make test_python` (or `bash scripts/test.sh`), which runs unit tests, `go vet`, `go vet with shadow`, [errcheck](https://github.com/kisielk/errcheck), [staticcheck](https://staticcheck.io/), and [misspell](https://github.com/client9/misspell).
+To run Python tests use `make python_test`, which runs unit tests.
 
 ## Contributing
 
